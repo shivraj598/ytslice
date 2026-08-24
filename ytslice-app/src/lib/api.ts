@@ -2,39 +2,8 @@ import type { ApiResponse, StreamFormat, VideoInfo } from '../types';
 
 const API_BASE = '/api';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-
-/**
- * Fetch metadata + proxied stream URLs.
- * Primary: Supabase Edge Function (InnerTube-based extraction, most reliable).
- * Fallback: our Cloudflare Pages Function (/api/info, parallel instance racing).
- */
+/** Fetch metadata + proxied stream URLs from our Cloudflare Pages Function. */
 export async function fetchVideoInfo(id: string, signal?: AbortSignal): Promise<VideoInfo> {
-  if (SUPABASE_URL) {
-    try {
-      return await fetchVideoInfoSupabase(id, signal);
-    } catch (err) {
-      if (signal?.aborted) throw err;
-      // fall through to /api/info
-    }
-  }
-  return fetchVideoInfoPages(id, signal);
-}
-
-async function fetchVideoInfoSupabase(id: string, signal?: AbortSignal): Promise<VideoInfo> {
-  const url =
-    `${SUPABASE_URL}/functions/v1/ytslice?id=${encodeURIComponent(id)}` +
-    `&origin=${encodeURIComponent(globalThis.location?.origin ?? '')}`;
-  let res: Response;
-  try {
-    res = await fetch(url, { signal });
-  } catch {
-    throw new Error('Network error reaching the Supabase extractor.');
-  }
-  return parseInfoResponse(res);
-}
-
-async function fetchVideoInfoPages(id: string, signal?: AbortSignal): Promise<VideoInfo> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE}/info?id=${encodeURIComponent(id)}`, { signal });
