@@ -1,0 +1,23 @@
+# Project brief
+/description.md
+/descriptoin.md
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/
+
+# Build and coverage output
+dist/
+build/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
