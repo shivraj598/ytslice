@@ -1,60 +1,40 @@
-import { useRef, useEffect, useState } from 'react';
+import type { VideoInfo } from '../types';
+import { formatTime } from '../lib/youtube';
+import { IconClock, IconX } from './icons';
 
 interface VideoPreviewProps {
-  videoInfo: {
-    id: string;
-    title: string;
-    thumbnail: string;
-    duration: number;
-  } | null;
-  onProcess: () => void;
-  processing: boolean;
-  showTimeline: boolean;
+  info: VideoInfo;
+  onClear: () => void;
 }
 
-export function VideoPreview({ videoInfo, onProcess, processing, showTimeline }: VideoPreviewProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
-
-  useEffect(() => {
-    if (videoInfo && showTimeline && iframeRef.current) {
-      iframeRef.current.src = `https://www.youtube.com/embed/${videoInfo.id}?rel=0&enablejsapi=1`;
-    }
-  }, [videoInfo, showTimeline]);
-
-  if (!videoInfo) return null;
-
+export function VideoPreview({ info, onClear }: VideoPreviewProps) {
   return (
-    <div className="preview-row">
-      <div className="thumbnail-wrap" id="media-preview">
-        {showTimeline ? (
-          <iframe
-            ref={iframeRef}
-            title="YouTube video preview"
-            src={`https://www.youtube.com/embed/${videoInfo.id}?rel=0&enablejsapi=1`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            onLoad={() => setIframeLoaded(true)}
-          />
-        ) : (
-          <>
-            <img src={videoInfo.thumbnail} alt={videoInfo.title} />
-            <span className="play-badge">▶</span>
-          </>
-        )}
+    <div className="preview">
+      <div className="preview-media">
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${info.id}?rel=0`}
+          title={info.title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
       </div>
-      <div className="video-details">
-        <span className="detail-label">{showTimeline ? 'READY TO CUT' : 'VIDEO FOUND'}</span>
-        <h2>{videoInfo.title}</h2>
-        <p>youtube.com/watch?v={videoInfo.id}</p>
-      </div>
-      {!showTimeline && (
-        <button className="process-button" onClick={onProcess} disabled={processing}>
-          {processing ? 'Processing video…' : 'Process video <span aria-hidden="true">→</span>'}
+      <div className="preview-info">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="meta-title">{info.title}</div>
+          <div className="meta-sub">
+            {info.author && <span>{info.author}</span>}
+            {info.duration > 0 && (
+              <span className="badge">
+                <IconClock /> {formatTime(info.duration)}
+              </span>
+            )}
+            {info.source && <span className="badge badge-accent">{info.source}</span>}
+          </div>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={onClear}>
+          <IconX /> Clear
         </button>
-      )}
+      </div>
     </div>
   );
 }
-
-import { useState } from 'react';
