@@ -7,6 +7,8 @@ const editor = document.querySelector('#editor');
 const emptyState = document.querySelector('#editor-empty');
 const fieldNote = document.querySelector('#field-note');
 const toast = document.querySelector('#toast');
+let loadedVideoId = '';
+let loadedVideoUrl = '';
 let toastTimer;
 
 function showToast(message) {
@@ -53,6 +55,8 @@ function loadVideo() {
   document.querySelector('#video-thumbnail').src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
   document.querySelector('#video-title').textContent = `YouTube video · ${id}`;
   document.querySelector('#video-source').textContent = `youtube.com/watch?v=${id}`;
+  loadedVideoId = id;
+  loadedVideoUrl = urlInput.value.trim();
   document.querySelector('#process-video-row').hidden = false;
   document.querySelector('#timeline-wrap').hidden = true;
   document.querySelector('#export-row').hidden = true;
@@ -79,24 +83,35 @@ document.querySelector('#process-video').addEventListener('click', () => {
   const button = document.querySelector('#process-video');
   button.disabled = true;
   button.textContent = 'Processing video…';
-  setTimeout(() => {
-    button.disabled = false;
-    document.querySelector('#process-video-row').hidden = true;
-    document.querySelector('#timeline-wrap').hidden = false;
-    document.querySelector('#export-row').hidden = false;
-    showToast('Video processed. Choose your range.');
-  }, 650);
+  const preview = document.querySelector('#media-preview');
+  preview.innerHTML = `<iframe title="YouTube video preview" src="https://www.youtube.com/embed/${loadedVideoId}?rel=0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  document.querySelector('#process-video-row').hidden = true;
+  document.querySelector('#timeline-wrap').hidden = false;
+  document.querySelector('#export-row').hidden = false;
+  button.disabled = false;
+  button.innerHTML = 'Process video <span aria-hidden="true">→</span>';
+  showToast('Video processed. Choose your range.');
+  fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(loadedVideoUrl)}&format=json`)
+    .then((response) => response.ok ? response.json() : null)
+    .then((metadata) => { if (metadata?.title) document.querySelector('#video-title').textContent = metadata.title; })
+    .catch(() => null);
 });
 
 function createClip() {
   const start = document.querySelector('#start-time').value;
   const end = document.querySelector('#end-time').value;
+  const toSeconds = (time) => time.split(':').reduce((total, value) => total * 60 + Number(value || 0), 0);
+  if (!/^\d{2}:\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}:\d{2}$/.test(end) || toSeconds(end) <= toSeconds(start)) {
+    showToast('Choose a valid end time after the start time');
+    return false;
+  }
   const row = document.createElement('div');
   row.className = 'saved-clip';
   row.innerHTML = `<span>CLIP ${document.querySelectorAll('.saved-clip').length + 1}</span><strong>${start} → ${end}</strong><span>video / ${document.querySelector('#quality').value}</span><button class="clip-download" type="button">Download clip <span aria-hidden="true">↓</span></button><button class="clip-remove" type="button" aria-label="Remove clip">×</button>`;
   row.querySelector('.clip-remove').addEventListener('click', () => row.remove());
-  row.querySelector('.clip-download').addEventListener('click', () => showToast('Preparing this clip for download…'));
+  row.querySelector('.clip-download').addEventListener('click', () => showToast('Browser-only mode cannot download YouTube media. Connect a permitted processor to export this clip.'));
   document.querySelector('#clips-list').appendChild(row);
+  return true;
 }
 
 document.querySelector('#process-clip').addEventListener('click', () => {
@@ -106,8 +121,7 @@ document.querySelector('#process-clip').addEventListener('click', () => {
   setTimeout(() => {
     button.disabled = false;
     button.innerHTML = 'Process clip <span aria-hidden="true">→</span>';
-    createClip();
-    showToast('Clip processed. Download it below.');
+    if (createClip()) showToast('Clip processed. Download it below.');
   }, 650);
 });
 document.querySelector('#download-audio').addEventListener('click', () => showToast('Preparing your MP3…'));
