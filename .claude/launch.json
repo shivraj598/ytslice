@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ytslice-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "ytslice-app", "run", "dev"],
+      "autoPort": true,
+      "port": 5173
+    }
+  ]
+}
