@@ -53,7 +53,7 @@
 
           <div class="editor" id="editor" hidden>
             <div class="preview-row">
-              <div class="thumbnail-wrap"><img id="video-thumbnail" alt="YouTube video thumbnail" /><span class="play-badge">▶</span></div>
+              <div class="thumbnail-wrap" id="media-preview"><img id="video-thumbnail" alt="YouTube video thumbnail" /><span class="play-badge">▶</span></div>
               <div class="video-details"><span class="detail-label">READY TO CUT</span><h2 id="video-title">YouTube video</h2><p id="video-source">youtube.com</p></div>
               <button class="clear-button" id="clear-button" type="button" aria-label="Clear loaded video">×</button>
             </div>
@@ -68,9 +68,10 @@
                 <label>End <input id="end-time" type="text" value="00:00:30" maxlength="8" /></label>
                 <span class="clip-length" id="clip-length">30 sec clip</span>
               </div>
+              <p class="range-note">Use HH:MM:SS. Clips must be shorter than the source video.</p>
             </div>
             <div class="export-row" id="export-row" hidden>
-              <label class="quality-label" for="quality">Quality <select id="quality"><option>Same as source</option><option>1080p</option><option>720p</option><option>480p</option></select></label>
+              <label class="quality-label" for="quality">Quality <select id="quality"><option selected>1080p</option><option>Same as source</option><option>720p</option><option>480p</option></select></label>
               <button class="add-clip" id="add-clip" type="button"><span aria-hidden="true">+</span> Add another clip</button>
               <button class="process-button" id="process-clip" type="button">Process clip <span aria-hidden="true">→</span></button>
             </div>
@@ -82,7 +83,7 @@
           <div class="audio-intro"><span class="audio-symbol">♫</span><div><h2>Audio, isolated.</h2><p>Pull the full track or cut a precise moment as an MP3.</p></div></div>
           <div class="audio-options"><button class="audio-option selected" type="button"><strong>Full video</strong><span>Download the complete audio track</span><b>MP3</b></button><button class="audio-option" type="button"><strong>Selected range</strong><span>Use the timeline from the video tab</span><b>MP3</b></button></div>
           <button class="download-button audio-download" id="download-audio" type="button">Download MP3 <span aria-hidden="true">↓</span></button>
-          <p class="audio-note">You can switch back to video anytime. Your last range stays saved.</p>
+          <p class="audio-note">You can switch back to video anytime. Your last range stays saved. Browser-only mode cannot extract YouTube media files.</p>
         </div>
       </section>
 
