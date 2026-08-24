@@ -1,168 +1,174 @@
+import { useToast } from './hooks/useToast';
 import { useVideo } from './hooks/useVideo';
 import { ModeTabs } from './components/ModeTabs';
 import { UrlInput } from './components/UrlInput';
 import { VideoPreview } from './components/VideoPreview';
-import { Timeline } from './components/Timeline';
-import { ExportRow } from './components/ExportRow';
+import { RangeTimeline } from './components/RangeTimeline';
 import { ClipsList } from './components/ClipsList';
 import { AudioPanel } from './components/AudioPanel';
-import { Toast } from './components/Toast';
+import { Toaster } from './components/Toaster';
+import { IconFolder, IconScissors } from './components/icons';
+import { supportsFolderPicker } from './lib/download';
 
 function App() {
-  const {
-    mode,
-    setMode,
-    audioOption,
-    setAudioOption,
-    url,
-    setUrl,
-    videoInfo,
-    clips,
-    processedClips,
-    selectedQuality,
-    setSelectedQuality,
-    startTime,
-    endTime,
-    loading,
-    processingClip,
-    downloadingClip,
-    toast,
-    loadVideo,
-    clearVideo,
-    handleTimeChange,
-    getClipDuration,
-    addClip,
-    handleDownload,
-    removeProcessedClip,
-  } = useVideo();
+  const { toasts, notify, dismiss } = useToast();
+  const v = useVideo(notify);
+
+  const canSlice = v.end - v.start >= 1;
+  const folderPicker = supportsFolderPicker();
 
   return (
-    <>
+    <div className="app">
       <header className="site-header">
-        <a className="wordmark" href="#top" aria-label="ytslice home">
-          <span>yt</span>slice
-        </a>
-        <div className="header-meta">
-          <span className="status-dot"></span> free to use · no sign-up
+        <div className="container">
+          <a className="brand" href="#top" aria-label="ytslice home">
+            <span className="brand-mark">
+              <IconScissors />
+            </span>
+            yt<em>slice</em>
+          </a>
+          <div className="header-meta">
+            <span className="status-dot" /> runs in your browser
+          </div>
         </div>
-        <a className="header-link" href="#how-it-works">how it works <span aria-hidden="true">↗</span></a>
       </header>
 
       <main id="top">
-        <section className="hero">
-          <div className="hero-copy">
-            <p className="kicker">VIDEO TOOL / 01</p>
-            <h1>Keep the<br /><em>good part.</em></h1>
-            <p className="hero-intro">Cut any moment from a YouTube video. Download it clean, in the quality you found it.</p>
-          </div>
-          <div className="hero-mark" aria-hidden="true">
-            <span className="mark-line"></span>
-            <span className="mark-label">CUT / SHARE / REPEAT</span>
-          </div>
-        </section>
+        <div className="container">
+          <section className="hero">
+            <span className="kicker">YouTube clipper</span>
+            <h1>
+              Keep the <em>good part.</em>
+            </h1>
+            <p>
+              Paste a link, drag the handles, and pull just the moment you want — as video or MP3.
+              Everything is cut right here in your browser.
+            </p>
+          </section>
 
-        <section className="workspace" aria-label="Video cutter">
-          <ModeTabs mode={mode} onModeChange={setMode} />
+          <section className="workspace" aria-label="Clip workspace">
+            <div className="card card-pad">
+              <ModeTabs mode={v.mode} onChange={v.setMode} />
 
-          <div className="panel" id="video-panel" role="tabpanel" aria-labelledby="video-tab" hidden={mode !== 'video'}>
-            <UrlInput
-              url={url}
-              onUrlChange={setUrl}
-              onLoad={loadVideo}
-              onClear={clearVideo}
-              loading={loading}
-              hasVideo={!!videoInfo}
-            />
+              <div className="stack">
+                <UrlInput
+                  value={v.url}
+                  onChange={v.setUrl}
+                  onLoad={v.loadVideo}
+                  onDemo={v.loadDemo}
+                  loading={v.loading}
+                  hasVideo={v.hasVideo}
+                />
 
-            {!videoInfo && (
-              <div className="editor-empty" id="editor-empty">
-                <div className="empty-graphic" aria-hidden="true"><span></span><span></span><span></span><b>+</b></div>
-                <div><strong>Your edit starts here.</strong><p>Paste a video above to set the in and out points.</p></div>
+                {!v.info ? (
+                  <div className="empty">
+                    <div className="empty-icon">
+                      <IconScissors />
+                    </div>
+                    <h3>Your edit starts with a link</h3>
+                    <p>
+                      Drop a public YouTube URL above to load the video, then set your in and out
+                      points.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="divider" />
+                    <VideoPreview info={v.info} onClear={v.reset} />
+
+                    <RangeTimeline
+                      duration={v.info.duration}
+                      start={v.start}
+                      end={v.end}
+                      onChange={v.setRange}
+                    />
+
+                    {v.mode === 'video' ? (
+                      <>
+                        <div className="action-row">
+                          <span className="muted" style={{ fontSize: '0.84rem' }}>
+                            Slice this range, then download at any quality — plain click uses{' '}
+                            <strong style={{ color: 'var(--foreground)' }}>{v.defaultQuality}</strong>.
+                          </span>
+                          <span className="spacer" />
+                          <button
+                            className="btn btn-primary"
+                            onClick={v.addClip}
+                            disabled={!canSlice}
+                          >
+                            <IconScissors /> Slice this range
+                          </button>
+                        </div>
+
+                        <ClipsList
+                          clips={v.clips}
+                          qualityOptions={v.videoQualityOptions}
+                          defaultQuality={v.defaultQuality}
+                          busy={v.busy}
+                          onDownload={v.downloadClip}
+                          onRemove={v.removeClip}
+                        />
+                      </>
+                    ) : (
+                      <AudioPanel
+                        scope={v.audioScope}
+                        onScopeChange={v.setAudioScope}
+                        start={v.start}
+                        end={v.end}
+                        duration={v.info.duration}
+                        busy={v.busy}
+                        job={v.audioJob}
+                        onDownload={v.downloadAudio}
+                      />
+                    )}
+
+                    <div className="muted" style={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <IconFolder />
+                      {folderPicker
+                        ? 'Your browser lets you choose the destination folder on download.'
+                        : 'Files download to your browser’s downloads folder.'}
+                    </div>
+                  </>
+                )}
               </div>
-            )}
+            </div>
+          </section>
 
-            {videoInfo && (
-              <div className="editor" id="editor">
-                <VideoPreview
-                  videoInfo={videoInfo}
-                  onProcess={() => {
-                    // Video is already processed via API when loading
-                  }}
-                  processing={false}
-                  showTimeline={true}
-                />
-                <Timeline
-                  duration={videoInfo.duration}
-                  startTime={startTime}
-                  endTime={endTime}
-                  onStartChange={(t) => handleTimeChange('start', t)}
-                  onEndChange={(t) => handleTimeChange('end', t)}
-                  clipDuration={getClipDuration()}
-                />
-                <ExportRow
-                  quality={selectedQuality}
-                  onQualityChange={setSelectedQuality}
-                  onAddClip={addClip}
-                  onProcessClip={addClip}
-                  processing={!!processingClip}
-                />
-                <ClipsList
-                  clips={clips}
-                  processedClips={processedClips}
-                  downloadingId={downloadingClip}
-                  onDownload={handleDownload}
-                  onRemove={removeProcessedClip}
-                />
+          <section className="how" id="how-it-works">
+            <h2>
+              Three moves to <em>just enough.</em>
+            </h2>
+            <div className="steps">
+              <div className="step">
+                <span className="num">01 / LINK</span>
+                <h3>Drop the link</h3>
+                <p>Paste any public YouTube URL. We pull the video and its available qualities.</p>
               </div>
-            )}
-          </div>
-
-          <AudioPanel
-            audioOption={audioOption}
-            onAudioOptionChange={setAudioOption}
-            onDownload={() => {}}
-            loading={false}
-            hasRange={clips.length > 0}
-            id="audio-panel"
-            role="tabpanel"
-            aria-labelledby="audio-tab"
-            hidden={mode !== 'audio'}
-          />
-        </section>
-
-        <section className="how-section" id="how-it-works">
-          <div className="section-heading">
-            <p className="kicker">THREE SMALL MOVES</p>
-            <h2>From long video<br />to <em>just enough.</em></h2>
-          </div>
-          <div className="steps">
-            <div className="step">
-              <span>01</span>
-              <h3>Drop the link</h3>
-              <p>Paste a public YouTube URL. We'll fetch the title and thumbnail.</p>
+              <div className="step">
+                <span className="num">02 / MARK</span>
+                <h3>Mark the moment</h3>
+                <p>Drag the handles or type exact timecodes. Queue as many separate cuts as you want.</p>
+              </div>
+              <div className="step">
+                <span className="num">03 / KEEP</span>
+                <h3>Take it with you</h3>
+                <p>Download the clip as video or MP3 — up to the highest quality YouTube offers.</p>
+              </div>
             </div>
-            <div className="step">
-              <span>02</span>
-              <h3>Mark the moment</h3>
-              <p>Set your start and end time. Add as many separate clips as you need.</p>
-            </div>
-            <div className="step">
-              <span>03</span>
-              <h3>Take it with you</h3>
-              <p>Choose the source quality, then download video or MP3.</p>
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </main>
 
       <footer className="site-footer">
-        <span>ytslice / 2026</span>
-        <span>made for the moments worth keeping</span>
-        <span>deployed on Cloudflare Pages</span>
+        <div className="container">
+          <span>ytslice · 2026</span>
+          <span>cut in-browser · no uploads</span>
+          <span>deployed on Cloudflare Pages</span>
+        </div>
       </footer>
 
-      <Toast message={toast} />
-    </>
+      <Toaster toasts={toasts} onDismiss={dismiss} />
+    </div>
   );
 }
 

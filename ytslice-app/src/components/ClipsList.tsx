@@ -1,55 +1,195 @@
+import { useEffect, useRef, useState } from 'react';
+import type { Clip } from '../types';
+import { formatTime } from '../lib/youtube';
+import { formatBytes } from '../lib/youtube';
+import {
+  IconCheck,
+  IconChevronDown,
+  IconDownload,
+  IconTrash,
+} from './icons';
+
 interface ClipsListProps {
-  clips: Array<{
-    id: string;
-    startTime: number;
-    endTime: number;
-    quality: string;
-    format: 'video' | 'audio';
-  }>;
-  processedClips: Array<{
-    id: string;
-    url: string;
-    filename: string;
-    format: 'video' | 'audio';
-  }>;
-  downloadingId: string | null;
-  onDownload: (clip: { id: string; url: string; filename: string; format: 'video' | 'audio' }) => void;
-  onRemove: (id: string) => void;
+  clips: Clip[];
+  qualityOptions: string[];
+  defaultQuality: string;
+  busy: boolean;
+  onDownload: (clipId: string, quality: string) => void;
+  onRemove: (clipId: string) => void;
 }
 
-export function ClipsList({ clips, processedClips, downloadingId, onDownload, onRemove }: ClipsListProps) {
-  if (processedClips.length === 0) return null;
+export function ClipsList({
+  clips,
+  qualityOptions,
+  defaultQuality,
+  busy,
+  onDownload,
+  onRemove,
+}: ClipsListProps) {
+  if (clips.length === 0) {
+    return (
+      <div className="clips-empty">
+        No clips yet — set a range above and hit <strong>Slice</strong> to queue one.
+      </div>
+    );
+  }
 
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
-    return `${h}:${m}:${s}`;
+  return (
+    <div className="clips">
+      {clips.map((clip, i) => (
+        <ClipRow
+          key={clip.id}
+          clip={clip}
+          index={i + 1}
+          qualityOptions={qualityOptions}
+          defaultQuality={defaultQuality}
+          busy={busy}
+          onDownload={onDownload}
+          onRemove={onRemove}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface ClipRowProps {
+  clip: Clip;
+  index: number;
+  qualityOptions: string[];
+  defaultQuality: string;
+  busy: boolean;
+  onDownload: (clipId: string, quality: string) => void;
+  onRemove: (clipId: string) => void;
+}
+
+function ClipRow({
+  clip,
+  index,
+  qualityOptions,
+  defaultQuality,
+  busy,
+  onDownload,
+  onRemove,
+}: ClipRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [menuOpen]);
+
+  const active = clip.status === 'fetching' || clip.status === 'processing';
+  const isReady = clip.status === 'ready';
+  const isError = clip.status === 'error';
+  const disabled = busy || active;
+
+  const primaryQuality = clip.quality || defaultQuality;
+
+  const pick = (quality: string) => {
+    setMenuOpen(false);
+    onDownload(clip.id, quality);
   };
 
   return (
-    <div className="clips-list" aria-live="polite">
-      {processedClips.map((clip, index) => {
-        const originalClip = clips[index];
-        return (
-          <div key={clip.id} className="saved-clip">
-            <span>CLIP {index + 1}</span>
-            <strong>{formatTime(originalClip?.startTime || 0)} → {formatTime(originalClip?.endTime || 0)}</strong>
-            <span>{originalClip?.format === 'video' ? 'video' : 'audio'} / {originalClip?.quality || clip.format === 'video' ? 'MP3' : 'MP3'}</span>
+    <div className="clip">
+      <div className="clip-index">{index}</div>
+
+      <div className="clip-body">
+        <div className="clip-range">
+          <span>{formatTime(clip.start)}</span>
+          <span className="arrow">→</span>
+          <span>{formatTime(clip.end)}</span>
+          <span className="badge">{formatTime(Math.max(0, clip.end - clip.start))}</span>
+        </div>
+        <div className="clip-sub">
+          {isReady && (
+            <span className="badge badge-success">
+              <IconCheck /> {clip.quality || primaryQuality}
+              {clip.size ? ` · ${formatBytes(clip.size)}` : ''}
+            </span>
+          )}
+          {isError && <span className="badge badge-danger">{clip.message || 'Failed'}</span>}
+          {!active && !isReady && !isError && <span>Queued · {primaryQuality} default</span>}
+          {active && <span>{clip.message || 'Working…'}</span>}
+        </div>
+      </div>
+
+      <div className="clip-actions">
+        {active ? (
+          <button className="btn btn-secondary btn-sm" disabled>
+            <span className="spinner" style={{ borderTopColor: 'var(--accent)' }} />
+            {Math.round(clip.progress)}%
+          </button>
+        ) : (
+          <div className="split" ref={wrapRef}>
             <button
-              className="clip-download"
-              type="button"
-              onClick={() => onDownload(clip)}
-              disabled={downloadingId === clip.id}
+              className="btn btn-primary btn-sm"
+              disabled={disabled}
+              onClick={() => onDownload(clip.id, primaryQuality)}
+              title={`Download ${primaryQuality}`}
             >
-              {downloadingId === clip.id ? 'Downloading…' : 'Download clip <span aria-hidden="true">↓</span>'}
+              <IconDownload />
+              {isReady ? 'Save again' : `Download ${primaryQuality}`}
             </button>
-            <button className="clip-remove" type="button" onClick={() => onRemove(clip.id)} aria-label="Remove clip">
-              ×
-            </button>
+            {qualityOptions.length > 0 && (
+              <button
+                className="btn btn-primary btn-sm split-caret"
+                disabled={disabled}
+                aria-label="Choose quality"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((o) => !o)}
+              >
+                <IconChevronDown />
+              </button>
+            )}
+            {menuOpen && (
+              <div className="menu" role="menu">
+                <div className="menu-label">Download quality</div>
+                {qualityOptions.map((q) => (
+                  <button
+                    key={q}
+                    className="menu-item"
+                    role="menuitem"
+                    data-active={q === primaryQuality}
+                    onClick={() => pick(q)}
+                  >
+                    <span>{q}</span>
+                    {q === primaryQuality && <IconCheck />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        );
-      })}
+        )}
+        <button
+          className="btn btn-ghost btn-icon btn-sm"
+          onClick={() => onRemove(clip.id)}
+          disabled={active}
+          aria-label="Remove clip"
+          title="Remove"
+        >
+          <IconTrash />
+        </button>
+      </div>
+
+      {active && (
+        <div className="clip-progress">
+          <div className="progress">
+            <div className="progress-bar" style={{ width: `${Math.max(4, clip.progress)}%` }} />
+          </div>
+          <div className="row">
+            <span>{clip.message || 'Working…'}</span>
+            <span>{Math.round(clip.progress)}%</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

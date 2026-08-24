@@ -1,49 +1,90 @@
-interface AudioPanelProps {
-  audioOption: 'full' | 'range';
-  onAudioOptionChange: (option: 'full' | 'range') => void;
-  onDownload: () => void;
-  loading: boolean;
-  hasRange: boolean;
+import type { AudioScope } from '../types';
+import { formatTime } from '../lib/youtube';
+import { IconDownload, IconMusic, IconScissors } from './icons';
+
+export interface AudioJobView {
+  active: boolean;
+  progress: number;
+  message?: string;
 }
 
-export function AudioPanel({ audioOption, onAudioOptionChange, onDownload, loading, hasRange }: AudioPanelProps) {
+interface AudioPanelProps {
+  scope: AudioScope;
+  onScopeChange: (scope: AudioScope) => void;
+  start: number;
+  end: number;
+  duration: number;
+  busy: boolean;
+  job: AudioJobView;
+  onDownload: () => void;
+}
+
+export function AudioPanel({
+  scope,
+  onScopeChange,
+  start,
+  end,
+  duration,
+  busy,
+  job,
+  onDownload,
+}: AudioPanelProps) {
+  const clipLen = Math.max(0, end - start);
+
   return (
-    <div className="audio-panel" role="tabpanel" aria-labelledby="audio-tab">
-      <div className="audio-intro">
-        <span className="audio-symbol" aria-hidden="true">♫</span>
-        <div>
-          <h2>Audio, isolated.</h2>
-          <p>Pull the full track or cut a precise moment as an MP3.</p>
+    <div className="stack">
+      <div className="option-grid">
+        <button
+          type="button"
+          className="option-card"
+          data-active={scope === 'full'}
+          onClick={() => onScopeChange('full')}
+        >
+          <div className="oc-head">
+            <span className="oc-radio" />
+            <IconMusic /> Full track
+          </div>
+          <p>
+            Extract the entire video's audio as one MP3
+            {duration > 0 ? ` · ${formatTime(duration)}` : ''}.
+          </p>
+        </button>
+
+        <button
+          type="button"
+          className="option-card"
+          data-active={scope === 'range'}
+          onClick={() => onScopeChange('range')}
+        >
+          <div className="oc-head">
+            <span className="oc-radio" />
+            <IconScissors /> Selected range
+          </div>
+          <p>
+            Only the slice you picked above
+            {clipLen > 0 ? ` · ${formatTime(start)}–${formatTime(end)} (${formatTime(clipLen)})` : ''}.
+          </p>
+        </button>
+      </div>
+
+      {job.active ? (
+        <div className="stack" style={{ gap: 8 }}>
+          <div className="progress">
+            <div className="progress-bar" style={{ width: `${Math.max(4, job.progress)}%` }} />
+          </div>
+          <div className="clip-progress">
+            <div className="row">
+              <span>{job.message || 'Extracting audio…'}</span>
+              <span>{Math.round(job.progress)}%</span>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="audio-options">
-        <button
-          className={`audio-option ${audioOption === 'full' ? 'selected' : ''}`}
-          type="button"
-          onClick={() => onAudioOptionChange('full')}
-        >
-          <strong>Full video</strong>
-          <span>Download the complete audio track</span>
-          <b>MP3</b>
+      ) : (
+        <button className="btn btn-primary btn-lg btn-block" onClick={onDownload} disabled={busy}>
+          <IconDownload />
+          {scope === 'full' ? 'Download full MP3' : 'Slice & download MP3'}
         </button>
-        <button
-          className={`audio-option ${audioOption === 'range' ? 'selected' : ''}`}
-          type="button"
-          onClick={() => onAudioOptionChange('range')}
-          disabled={!hasRange}
-        >
-          <strong>Selected range</strong>
-          <span>Use the timeline from the video tab</span>
-          <b>MP3</b>
-        </button>
-      </div>
-      <button className="download-button audio-download" type="button" onClick={onDownload} disabled={loading}>
-        {loading ? 'Preparing…' : 'Download MP3 <span aria-hidden="true">↓</span>'}
-      </button>
-      <p className="audio-note">
-        You can switch back to video anytime. Your last range stays saved.
-        Browser-only mode cannot extract YouTube media files.
-      </p>
+      )}
     </div>
   );
 }
