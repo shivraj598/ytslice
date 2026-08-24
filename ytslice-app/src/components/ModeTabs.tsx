@@ -1,30 +1,31 @@
-import { useState } from 'react';
+import type { Mode } from '../types';
+import { IconMusic, IconVideo } from './icons';
 
 interface ModeTabsProps {
-  mode: 'video' | 'audio';
-  onModeChange: (mode: 'video' | 'audio') => void;
+  mode: Mode;
+  onChange: (mode: Mode) => void;
 }
 
-export function ModeTabs({ mode, onModeChange }: ModeTabsProps) {
+export function ModeTabs({ mode, onChange }: ModeTabsProps) {
   return (
-    <div className="mode-tabs" role="tablist" aria-label="Download format">
+    <div className="tabs" role="tablist" aria-label="Output type">
       <button
-        className={`mode-tab ${mode === 'video' ? 'active' : ''}`}
         role="tab"
         aria-selected={mode === 'video'}
-        aria-controls="video-panel"
-        onClick={() => onModeChange('video')}
+        data-active={mode === 'video'}
+        className="tab"
+        onClick={() => onChange('video')}
       >
-        Video <span>.mp4</span>
+        <IconVideo /> Video clip
       </button>
       <button
-        className={`mode-tab ${mode === 'audio' ? 'active' : ''}`}
         role="tab"
         aria-selected={mode === 'audio'}
-        aria-controls="audio-panel"
-        onClick={() => onModeChange('audio')}
+        data-active={mode === 'audio'}
+        className="tab"
+        onClick={() => onChange('audio')}
       >
-        Audio <span>.mp3</span>
+        <IconMusic /> MP3 audio
       </button>
     </div>
   );

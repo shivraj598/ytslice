@@ -1,56 +1,58 @@
-import { useRef } from 'react';
+import type { KeyboardEvent } from 'react';
+import { IconLink, IconSparkle } from './icons';
 
 interface UrlInputProps {
-  url: string;
-  onUrlChange: (url: string) => void;
+  value: string;
+  onChange: (v: string) => void;
   onLoad: () => void;
-  onClear: () => void;
+  onDemo: () => void;
   loading: boolean;
   hasVideo: boolean;
-  error?: string;
 }
 
-export function UrlInput({ url, onUrlChange, onLoad, onClear, loading, hasVideo, error }: UrlInputProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') onLoad();
+export function UrlInput({ value, onChange, onLoad, onDemo, loading, hasVideo }: UrlInputProps) {
+  const handleKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !loading) onLoad();
   };
 
   return (
-    <div className="url-row">
-      <label htmlFor="video-url">Paste a YouTube link</label>
-      <div className="url-control">
-        <input
-          ref={inputRef}
-          id="video-url"
-          type="url"
-          placeholder="https://youtube.com/watch?v=..."
-          value={url}
-          onChange={(e) => onUrlChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          autoComplete="off"
-          disabled={loading}
-        />
-        {hasVideo ? (
-          <button className="clear-button" type="button" onClick={onClear} aria-label="Clear loaded video">
-            ×
-          </button>
-        ) : (
-          <button
-            className="load-button"
-            type="button"
-            onClick={onLoad}
-            disabled={loading || !url.trim()}
-          >
-            {loading ? 'Loading…' : 'Load video <span aria-hidden="true">→</span>'}
-          </button>
-        )}
+    <div>
+      <label className="field-label" htmlFor="yt-url">
+        YouTube link
+      </label>
+      <div className="url-row">
+        <div className="input-wrap">
+          <IconLink />
+          <input
+            id="yt-url"
+            className="input"
+            type="url"
+            inputMode="url"
+            placeholder="https://www.youtube.com/watch?v=…"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKey}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        <button className="btn btn-primary btn-lg" onClick={onLoad} disabled={loading || !value.trim()}>
+          {loading ? (
+            <>
+              <span className="spinner" /> Processing…
+            </>
+          ) : hasVideo ? (
+            'Reload'
+          ) : (
+            'Process video'
+          )}
+        </button>
       </div>
-      <p className={`field-note ${error ? 'error' : ''}`}>
-        {error || (hasVideo ? 'Video loaded. Set your range below.' : 'Try a link to see its preview and choose your cut.')}
-      </p>
+      {!hasVideo && !loading && (
+        <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={onDemo}>
+          <IconSparkle /> Try it with a demo video
+        </button>
+      )}
     </div>
   );
 }
-
