@@ -74,41 +74,45 @@ export async function onRequestGet(context: RequestContext): Promise<Response> {
 
   const origin = reqUrl.origin;
   const secret = context.env.PROXY_SECRET || FALLBACK_SECRET;
-  const oembed = await fetchOEmbed(id);
-
   const invidious = splitEnv(context.env.INVIDIOUS_INSTANCES) ?? DEFAULT_INVIDIOUS;
   const piped = splitEnv(context.env.PIPED_INSTANCES) ?? DEFAULT_PIPED;
 
-  for (const inst of invidious) {
-    try {
-      const info = await fromInvidious(inst, id, origin, secret);
-      if (info && (info.videoFormats.length || info.audioFormats.length)) {
-        return json({ success: true, data: mergeMeta(info, oembed) });
-      }
-    } catch {
-      /* try next instance */
-    }
-  }
+  // Race every extractor at once; first one that returns usable formats wins.
+  // (Sequential fallbacks were too slow and usually timed out.)
+  const attempts: Promise<VideoInfo>[] = [
+    ...invidious.map((inst) =>
+      fromInvidious(inst, id, origin, secret).then((info) => {
+        if (!info || (!info.videoFormats.length && !info.audioFormats.length)) {
+          throw new Error(`invidious ${hostOf(inst)}: no formats`);
+        }
+        return mergeMeta(info, null);
+      }),
+    ),
+    ...piped.map((inst) =>
+      fromPiped(inst, id, origin, secret).then((info) => {
+        if (!info || (!info.videoFormats.length && !info.audioFormats.length)) {
+          throw new Error(`piped ${hostOf(inst)}: no formats`);
+        }
+        return mergeMeta(info, null);
+      }),
+    ),
+  ];
 
-  for (const inst of piped) {
-    try {
-      const info = await fromPiped(inst, id, origin, secret);
-      if (info && (info.videoFormats.length || info.audioFormats.length)) {
-        return json({ success: true, data: mergeMeta(info, oembed) });
-      }
-    } catch {
-      /* try next instance */
-    }
+  try {
+    const info = await Promise.any(attempts);
+    // Best-effort metadata fill from oEmbed (title/author/thumbnail gaps).
+    const oembed = await fetchOEmbed(id);
+    return json({ success: true, data: mergeMeta(info, oembed) });
+  } catch {
+    return json(
+      {
+        success: false,
+        error:
+          'Could not extract streams right now. The public extractors may be rate-limited or down — try again shortly, or try another video.',
+      },
+      502,
+    );
   }
-
-  return json(
-    {
-      success: false,
-      error:
-        'Could not extract streams right now. The public extractors may be rate-limited or down — try again shortly, or try another video.',
-    },
-    502,
-  );
 }
 
 // ---------------------------------------------------------------------------
